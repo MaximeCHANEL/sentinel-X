@@ -72,6 +72,11 @@ function App() {
             buzzer: {
                 width: 4,
                 height: 3
+            },
+
+            ir: {
+                width: 4,
+                height: 3
             }
         };
 
