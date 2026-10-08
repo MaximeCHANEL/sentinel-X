@@ -211,9 +211,62 @@ Le dashboard contient actuellement les widgets suivants :
 | 🌡️ Température / Humidité | Affichage de la température et de l'humidité              |
 | 🚨 Obstacle IR             | Détection d'un obstacle avec le capteur infrarouge        |
 | 🔊 Buzzer                  | Activation et désactivation du buzzer                     |
-| 📷 Caméra                  | Emplacement prévu pour la future intégration de la caméra |
+| 📷 Caméra                  | Flux vidéo et détection des intrusions humaines           |
 
 Les widgets peuvent être ajoutés, supprimés et organisés depuis le dashboard.
+
+## Caméra
+
+Le flux MJPEG est disponible sur `GET /api/camera/stream`. La caméra Raspberry Pi
+et le modèle YOLO sont initialisés à la première connexion. Chaque image produit
+une mesure `camera_intrusion` dans `capteur_data` (`1` si une personne est
+détectée, sinon `0`) et la mesure est également diffusée sur `WS /api/data/ws`.
+
+Les dépendances matérielles `picamera2` doivent être installées par le système
+Raspberry Pi. Le modèle peut être configuré avec `YOLO_MODEL_PATH`; les
+paramètres `CAMERA_WIDTH`, `CAMERA_HEIGHT`, `YOLO_IMAGE_SIZE` et
+`YOLO_CONFIDENCE` sont également disponibles.
+
+La caméra et YOLO sont exécutés dans le service séparé `camera-service`, sur le
+Raspberry Pi qui possède le matériel. Le backend Docker ne dépend donc pas de
+`picamera2`, PyTorch ou Ultralytics. Installer les dépendances du service
+caméra dans le venv du Raspberry Pi :
+
+```bash
+sudo apt install -y python3-picamera2
+python3 -m venv --system-site-packages .venv
+source .venv/bin/activate
+python -m pip install -r camera-service/requirements.txt
+cd camera-service
+uvicorn app:app --host 0.0.0.0 --port 9000
+```
+
+Le fichier de dépendances utilise les wheels CPU de PyTorch via
+`https://download.pytorch.org/whl/cpu`, ce qui évite l'installation des paquets
+NVIDIA CUDA.
+
+Le service caméra publie :
+
+* `GET /stream` : flux MJPEG traité par YOLO ;
+* `GET /health` : état de la caméra ;
+* les changements d'état d'intrusion vers `POST /api/camera/events` du backend.
+
+Le backend expose le flux pour le frontend via `GET /api/camera/stream` et
+enregistre chaque changement dans `capteur_data` sous `camera_intrusion`.
+Depuis Docker, `CAMERA_SERVICE_URL` vaut par défaut
+`http://host.docker.internal:9000`. Si le backend est exécuté directement sur
+la machine hôte, définir `CAMERA_SERVICE_URL=http://127.0.0.1:9000`.
+
+Le chemin du modèle est relatif au répertoire `camera-service` si
+`YOLO_MODEL_PATH` n'est pas défini. Vérifier son emplacement avec :
+
+```bash
+YOLO_MODEL_PATH=/chemin/vers/yolo11n_ncnn_model camera-service/start.sh
+```
+
+`GET /health` indique la phase de démarrage (`loading_dependencies`,
+`loading_model` ou `running_inference`) afin d'identifier un modèle absent ou
+une inférence trop lente.
 
 ## Gestion des alertes
 

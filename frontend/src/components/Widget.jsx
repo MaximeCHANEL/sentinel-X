@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createSpikeDetector } from '../utils/spikeDetector'; // NOUVEAU : décommenté
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL =
+    `${window.location.protocol}//${window.location.hostname}:8000/api`;
 
 const ALERT_DURATION_MS = 8000;
 const TEMPERATURE_MAX = 100;
@@ -54,6 +55,12 @@ function Widget({ widget, onDelete }) {
 
     const irSensors = Object.entries(esp32Data)
         .filter(([, sensors]) => sensors.ir !== undefined);
+
+    const cameraSensors = Object.entries(esp32Data)
+        .filter(([, sensors]) => sensors.camera_intrusion !== undefined);
+
+    const cameraStreamUrl =
+        `${API_URL}/camera/stream`;
 
 
     useEffect(() => {
@@ -333,7 +340,36 @@ function Widget({ widget, onDelete }) {
 
 
             {widget.widget === 'camera' && (
-                <p>📷 Caméra disponible prochainement</p>
+                <>
+                    <img
+                        className="camera-stream"
+                        src={cameraStreamUrl}
+                        alt="Flux vidéo de la caméra"
+                    />
+
+                    {cameraSensors.map(([source, sensors]) => (
+                        <p
+                            key={source}
+                            className={
+                                sensors.camera_intrusion
+                                    ? 'alert alert-critical'
+                                    : 'alert'
+                            }
+                        >
+                            {sensors.camera_intrusion
+                                ? '🚨 Intrus détecté'
+                                : '✅ Aucun intrus détecté'}
+                        </p>
+                    ))}
+
+                    {cameraSensors.length === 0 && (
+                        <p>En attente de la détection caméra...</p>
+                    )}
+
+                    <p>
+                        Connexion : <b>{wsStatus}</b>
+                    </p>
+                </>
             )}
 
         </div>

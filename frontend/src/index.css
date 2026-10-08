@@ -151,3 +151,12 @@ button {
     background: #b71c1c;
     color: #ffffff;
 }
+
+.camera-stream {
+    display: block;
+    width: 100%;
+    max-height: 240px;
+    object-fit: contain;
+    background: #111;
+    border-radius: 6px;
+}

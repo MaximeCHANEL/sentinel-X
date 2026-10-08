@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import Dashboard from './components/Dashboard';
 import AddWidget from './components/AddWidget';
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL =
+    `${window.location.protocol}//${window.location.hostname}:8000/api`;
 
 function App() {
 
