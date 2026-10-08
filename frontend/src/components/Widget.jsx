@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 // import { createSpikeDetector } from '../utils/spikeDetector';
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL =
+    `${window.location.protocol}//${window.location.hostname}:8000/api`;
 
 const ALERT_DURATION_MS = 8000;
 const TEMPERATURE_MAX = 100;
