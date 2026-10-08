@@ -257,6 +257,17 @@ Depuis Docker, `CAMERA_SERVICE_URL` vaut par défaut
 `http://host.docker.internal:9000`. Si le backend est exécuté directement sur
 la machine hôte, définir `CAMERA_SERVICE_URL=http://127.0.0.1:9000`.
 
+Le chemin du modèle est relatif au répertoire `camera-service` si
+`YOLO_MODEL_PATH` n'est pas défini. Vérifier son emplacement avec :
+
+```bash
+YOLO_MODEL_PATH=/chemin/vers/yolo11n_ncnn_model camera-service/start.sh
+```
+
+`GET /health` indique la phase de démarrage (`loading_dependencies`,
+`loading_model` ou `running_inference`) afin d'identifier un modèle absent ou
+une inférence trop lente.
+
 ## Gestion des alertes
 
 Le dashboard utilise différents niveaux d'alerte.
