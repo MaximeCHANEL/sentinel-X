@@ -1,0 +1,9 @@
+--index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://pypi.org/simple
+torch
+torchvision
+fastapi
+uvicorn[standard]
+httpx
+opencv-python
+ultralytics

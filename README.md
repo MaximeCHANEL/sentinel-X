@@ -227,26 +227,35 @@ Raspberry Pi. Le modèle peut être configuré avec `YOLO_MODEL_PATH`; les
 paramètres `CAMERA_WIDTH`, `CAMERA_HEIGHT`, `YOLO_IMAGE_SIZE` et
 `YOLO_CONFIDENCE` sont également disponibles.
 
-L'image Docker du backend installe uniquement les dépendances de l'API. Cela
-évite de télécharger les centaines de mégaoctets de PyTorch/CUDA utilisés par
-`ultralytics` sur les machines qui ne disposent pas d'une caméra Raspberry Pi.
-Sur le Raspberry Pi qui exécute la caméra, installer les dépendances système et
-Python séparément :
+La caméra et YOLO sont exécutés dans le service séparé `camera-service`, sur le
+Raspberry Pi qui possède le matériel. Le backend Docker ne dépend donc pas de
+`picamera2`, PyTorch ou Ultralytics. Installer les dépendances du service
+caméra dans le venv du Raspberry Pi :
 
 ```bash
 sudo apt install -y python3-picamera2
-python3 -m pip install -r backend/requirements-camera.txt
+python3 -m venv --system-site-packages .venv
+source .venv/bin/activate
+python -m pip install -r camera-service/requirements.txt
+cd camera-service
+uvicorn app:app --host 0.0.0.0 --port 9000
 ```
 
 Le fichier de dépendances utilise les wheels CPU de PyTorch via
-`https://download.pytorch.org/whl/cpu`; les dépendances PyPI comme
-`ultralytics` et OpenCV restent récupérées depuis PyPI. Cela évite
-l'installation des paquets NVIDIA CUDA.
+`https://download.pytorch.org/whl/cpu`, ce qui évite l'installation des paquets
+NVIDIA CUDA.
 
-Le backend Docker doit alors être remplacé par un service exécuté sur le
-Raspberry Pi, ou recevoir le flux caméra depuis ce service. Sans ces
-dépendances, `/api/camera/stream` renvoie `503` au lieu de faire échouer le
-démarrage de toute l'API.
+Le service caméra publie :
+
+* `GET /stream` : flux MJPEG traité par YOLO ;
+* `GET /health` : état de la caméra ;
+* les changements d'état d'intrusion vers `POST /api/camera/events` du backend.
+
+Le backend expose le flux pour le frontend via `GET /api/camera/stream` et
+enregistre chaque changement dans `capteur_data` sous `camera_intrusion`.
+Depuis Docker, `CAMERA_SERVICE_URL` vaut par défaut
+`http://host.docker.internal:9000`. Si le backend est exécuté directement sur
+la machine hôte, définir `CAMERA_SERVICE_URL=http://127.0.0.1:9000`.
 
 ## Gestion des alertes
 

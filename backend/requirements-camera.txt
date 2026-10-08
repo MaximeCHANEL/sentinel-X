@@ -1,8 +1,0 @@
-# Install these on the Raspberry Pi camera host, not in the generic API image.
-# Keep PyTorch CPU-only so pip does not download NVIDIA CUDA packages.
---index-url https://download.pytorch.org/whl/cpu
---extra-index-url https://pypi.org/simple
-torch
-torchvision
-opencv-python
-ultralytics
