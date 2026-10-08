@@ -211,9 +211,42 @@ Le dashboard contient actuellement les widgets suivants :
 | 🌡️ Température / Humidité | Affichage de la température et de l'humidité              |
 | 🚨 Obstacle IR             | Détection d'un obstacle avec le capteur infrarouge        |
 | 🔊 Buzzer                  | Activation et désactivation du buzzer                     |
-| 📷 Caméra                  | Emplacement prévu pour la future intégration de la caméra |
+| 📷 Caméra                  | Flux vidéo et détection des intrusions humaines           |
 
 Les widgets peuvent être ajoutés, supprimés et organisés depuis le dashboard.
+
+## Caméra
+
+Le flux MJPEG est disponible sur `GET /api/camera/stream`. La caméra Raspberry Pi
+et le modèle YOLO sont initialisés à la première connexion. Chaque image produit
+une mesure `camera_intrusion` dans `capteur_data` (`1` si une personne est
+détectée, sinon `0`) et la mesure est également diffusée sur `WS /api/data/ws`.
+
+Les dépendances matérielles `picamera2` doivent être installées par le système
+Raspberry Pi. Le modèle peut être configuré avec `YOLO_MODEL_PATH`; les
+paramètres `CAMERA_WIDTH`, `CAMERA_HEIGHT`, `YOLO_IMAGE_SIZE` et
+`YOLO_CONFIDENCE` sont également disponibles.
+
+L'image Docker du backend installe uniquement les dépendances de l'API. Cela
+évite de télécharger les centaines de mégaoctets de PyTorch/CUDA utilisés par
+`ultralytics` sur les machines qui ne disposent pas d'une caméra Raspberry Pi.
+Sur le Raspberry Pi qui exécute la caméra, installer les dépendances système et
+Python séparément :
+
+```bash
+sudo apt install -y python3-picamera2
+python3 -m pip install -r backend/requirements-camera.txt
+```
+
+Le fichier de dépendances utilise les wheels CPU de PyTorch via
+`https://download.pytorch.org/whl/cpu`; les dépendances PyPI comme
+`ultralytics` et OpenCV restent récupérées depuis PyPI. Cela évite
+l'installation des paquets NVIDIA CUDA.
+
+Le backend Docker doit alors être remplacé par un service exécuté sur le
+Raspberry Pi, ou recevoir le flux caméra depuis ce service. Sans ces
+dépendances, `/api/camera/stream` renvoie `503` au lieu de faire échouer le
+démarrage de toute l'API.
 
 ## Gestion des alertes
 
