@@ -177,12 +177,34 @@ button {
     border: none;
     color: #8ab4f8;
     cursor: pointer;
+}
+
+.widget-camera {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.widget-camera h2 {
+    flex: 0 0 auto;
+}
+
+.camera-preview {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    overflow: hidden;
+    background: #111;
+    border-radius: 6px;
+}
 
 .camera-stream {
     display: block;
-    width: 100%;
-    max-height: 240px;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
     object-fit: contain;
-    background: #111;
-    border-radius: 6px;
 }

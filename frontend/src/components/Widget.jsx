@@ -255,7 +255,7 @@ function Widget({ widget, onDelete }) {
 
     return (
 
-        <div className="widget-content">
+        <div className={`widget-content widget-${widget.widget}`}>
 
             <button
                 className="delete-button"
@@ -412,11 +412,13 @@ function Widget({ widget, onDelete }) {
 
             {widget.widget === 'camera' && (
                 <>
-                    <img
-                        className="camera-stream"
-                        src={cameraStreamUrl}
-                        alt="Flux vidéo de la caméra"
-                    />
+                    <div className="camera-preview">
+                        <img
+                            className="camera-stream"
+                            src={cameraStreamUrl}
+                            alt="Flux vidéo de la caméra"
+                        />
+                    </div>
 
                     {cameraSensors.map(([source, sensors]) => (
                         <p
