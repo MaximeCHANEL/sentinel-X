@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createSpikeDetector } from '../utils/spikeDetector'; // NOUVEAU : décommenté
+import HistoryWidget from './HistoryWidget';
 
 const API_URL =
     `${window.location.protocol}//${window.location.hostname}:8000/api`;
@@ -79,7 +80,8 @@ const WIDGET_CATALOG = {
     temperature: { title: 'Température / Humidité', icon: '🌡️' },
     ir:          { title: 'Obstacle IR',            icon: '🚨' },
     camera:      { title: 'Caméra',                 icon: '📷' },
-    buzzer:      { title: 'Buzzer',                 icon: '🔊' }
+    buzzer:      { title: 'Buzzer',                 icon: '🔊' },
+    history:     { title: 'Historique (15 min)',    icon: '🕒' }
 };
 
 
@@ -408,6 +410,8 @@ function Widget({ widget, onDelete }) {
                     </button>
                 </>
             )}
+
+            {widget.widget === 'history' && <HistoryWidget />}
 
 
             {widget.widget === 'camera' && (

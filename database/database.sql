@@ -39,5 +39,6 @@ INSERT INTO dashboard_widgets (user_id, widget, position_x, position_y, width, h
 (1, 'distance', 0, 0, 4, 3, 1),
 (1, 'temperature', 4, 0, 5, 3, 1),
 (1, 'camera', 9, 0, 3, 3, 1),
-(1, 'buzzer', 0, 3, 6, 3, 1)
+(1, 'buzzer', 0, 3, 6, 3, 1),
+(1, 'history', 6, 3, 6, 5, 1)
 ON DUPLICATE KEY UPDATE position_x=VALUES(position_x), position_y=VALUES(position_y), width=VALUES(width), height=VALUES(height), visible=VALUES(visible);

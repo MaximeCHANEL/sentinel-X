@@ -15,7 +15,7 @@ from ..models import CapteurData
 from ..schemas import ReadingCreate, ReadingResponse
 
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 router = APIRouter(
     prefix="/api/data",
@@ -86,6 +86,55 @@ def latest_readings(
         )
         .all()
     )
+
+@router.get(
+    "/recent",
+    response_model=list[ReadingResponse]
+)
+def recent_readings(
+    minutes: int = Query(
+        default=15,
+        ge=1,
+        le=1440
+    ),
+    name_capteur: str | None = None,
+    limit: int = Query(
+        default=5000,
+        ge=1,
+        le=20000
+    ),
+    db: Session = Depends(get_db)
+):
+    """Historique des mesures enregistrées sur les `minutes` dernières minutes
+    (15 par défaut), du plus ancien au plus récent.
+
+    `recorded_at` est stocké en UTC (datetime.utcnow), le seuil est donc
+    calculé en UTC également.
+    """
+    since = datetime.utcnow() - timedelta(minutes=minutes)
+
+    query = db.query(CapteurData).filter(
+        CapteurData.recorded_at >= since
+    )
+
+    if name_capteur:
+        query = query.filter(
+            CapteurData.name_capteur == name_capteur
+        )
+
+    # On garde les `limit` mesures les plus récentes, puis on remet
+    # l'ordre chronologique pour faciliter le tracé côté frontend.
+    rows = (
+        query
+        .order_by(
+            CapteurData.recorded_at.desc(),
+            CapteurData.id.desc()
+        )
+        .limit(limit)
+        .all()
+    )
+
+    return list(reversed(rows))
 
 
 @router.get(

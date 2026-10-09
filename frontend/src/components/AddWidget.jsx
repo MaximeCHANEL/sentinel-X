@@ -8,7 +8,8 @@ function AddWidget({ onAdd }) {
             'temperature\n' +
             'camera\n' +
             'buzzer\n' +
-            'ir'
+            'ir\n' +
+            'history'
         );
 
         if (!widgetName) {

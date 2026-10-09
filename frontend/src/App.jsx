@@ -90,6 +90,11 @@ function App() {
             ir: {
                 width: 4,
                 height: 3
+            },
+
+            history: {
+                width: 6,
+                height: 5
             }
         };
         const config = catalog[widgetName];
