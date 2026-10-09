@@ -2,8 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, engine
-from .routers import widgets, readings, esp32
-
+from .routers import widgets, readings, esp32, auth
 
 app = FastAPI(
     title="Sentinel Dashboard API",
@@ -25,3 +24,4 @@ Base.metadata.create_all(bind=engine)
 app.include_router(widgets.router)
 app.include_router(readings.router)
 app.include_router(esp32.router)
+app.include_router(auth.router)

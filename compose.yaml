@@ -5,6 +5,8 @@ services:
     container_name: sentinel_backend
     ports:
       - "8000:8000"
+    environment:
+      SECRET_KEY: "6fJz4UK/Ob0H1l3qEx8fuMS/IGzVqXJJ/iZh/zVy9UA="
     depends_on:
       db:
         condition: service_healthy
