@@ -7,6 +7,9 @@ services:
       - "8000:8000"
     environment:
       SECRET_KEY: "6fJz4UK/Ob0H1l3qEx8fuMS/IGzVqXJJ/iZh/zVy9UA="
+      CAMERA_SERVICE_URL: http://host.docker.internal:9000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy

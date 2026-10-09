@@ -144,6 +144,7 @@ button {
     border-radius: 6px;
     padding: 6px 10px;
     font-weight: bold;
+    margin: 6px 0;
 }
 
 .alert-critical {
@@ -176,4 +177,12 @@ button {
     border: none;
     color: #8ab4f8;
     cursor: pointer;
+
+.camera-stream {
+    display: block;
+    width: 100%;
+    max-height: 240px;
+    object-fit: contain;
+    background: #111;
+    border-radius: 6px;
 }

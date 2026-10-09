@@ -15,6 +15,8 @@ from ..models import CapteurData
 from ..schemas import ReadingCreate, ReadingResponse
 
 
+from datetime import datetime
+
 router = APIRouter(
     prefix="/api/data",
     tags=["Data"]
@@ -24,36 +26,41 @@ router = APIRouter(
 connected_clients = []
 
 
+async def save_and_broadcast(readings: list[ReadingCreate], ip: str, db: Session):
+    now = datetime.utcnow()
+
+    db.add_all([
+        CapteurData(
+            name_capteur=r.name_capteur,
+            value=r.value,
+            recorded_at=r.recorded_at or now,
+        )
+        for r in readings
+    ])
+    db.commit()
+
+    for r in readings:
+        data = {
+            "name_capteur": r.name_capteur,
+            "value": r.value,
+            "recorded_at": (r.recorded_at or now).isoformat(),
+            "ip_esp32": ip,
+        }
+        for websocket in list(connected_clients):
+            try:
+                await websocket.send_json(data)
+            except Exception:
+                if websocket in connected_clients:
+                    connected_clients.remove(websocket)
+
 @router.post("")
 async def create_readings(
     readings: list[ReadingCreate],
     request: Request,
     db: Session = Depends(get_db)
 ):
-    ip_esp32 = request.client.host
-
-    db.add_all([
-        CapteurData(
-            **r.model_dump(exclude_none=True)
-        )
-        for r in readings
-    ])
-
-    db.commit()
-
-    for reading in readings:
-        data = reading.model_dump(
-            exclude_none=True
-        )
-
-        data["ip_esp32"] = ip_esp32
-
-        for websocket in connected_clients:
-            await websocket.send_json(data)
-
-    return {
-        "inserted": len(readings)
-    }
+    await save_and_broadcast(readings, request.client.host, db)
+    return {"inserted": len(readings)}
 
 
 @router.get(

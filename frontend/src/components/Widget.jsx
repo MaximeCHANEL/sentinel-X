@@ -1,10 +1,17 @@
-import { useEffect, useState } from 'react';
-// import { createSpikeDetector } from '../utils/spikeDetector';
+import { useEffect, useRef, useState } from 'react';
+import { createSpikeDetector } from '../utils/spikeDetector'; // NOUVEAU : décommenté
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL =
+    `${window.location.protocol}//${window.location.hostname}:8000/api`;
 
 const ALERT_DURATION_MS = 8000;
 const TEMPERATURE_MAX = 100;
+
+const SPIKE_CONFIG = {
+    temperature: { minDelta: 1,  label: 'température', unit: '°C' },
+    humidity:    { minDelta: 5,  label: 'humidité',    unit: '%'  },
+    distance:    { minDelta: 10, label: 'distance',    unit: 'cm' }
+};
 
 async function buzzer(state) {
     const response = await fetch(`${API_URL}/buzzer`, {
@@ -30,14 +37,12 @@ const WIDGET_CATALOG = {
 function Widget({ widget, onDelete }) {
 
     const [wsStatus, setWsStatus] = useState('déconnecté');
-
-    // const [temperatureAlert, setTemperatureAlert] = useState(null);
-    // const [humidityAlert, setHumidityAlert] = useState(null);
-
-    // const [temperatureDetector] = useState(() => createSpikeDetector({ minDelta: 1 }));
-    // const [humidityDetector] = useState(() => createSpikeDetector({ minDelta: 5 }));
-
     const [esp32Data, setEsp32Data] = useState({});
+
+    const [spikeAlerts, setSpikeAlerts] = useState({});
+    const detectors = useRef({});    // un détecteur par ESP32 et par capteur
+    const alertTimers = useRef({});  // un timer par ESP32 et par capteur
+    const lastIr = useRef({}); // dernier état IR par ESP32
 
 
     const config = WIDGET_CATALOG[widget.widget];
@@ -51,13 +56,30 @@ function Widget({ widget, onDelete }) {
     const irSensors = Object.entries(esp32Data)
         .filter(([, sensors]) => sensors.ir !== undefined);
 
+    const cameraSensors = Object.entries(esp32Data)
+        .filter(([, sensors]) => sensors.camera_intrusion !== undefined);
+
+    const cameraStreamUrl =
+        `${API_URL}/camera/stream`;
+
 
     useEffect(() => {
 
         let ws;
         let reconnectTimeout;
-        let temperatureTimer;
-        let humidityTimer;
+
+        function showAlert(key, alert) {
+            setSpikeAlerts((previous) => ({ ...previous, [key]: alert }));
+
+            clearTimeout(alertTimers.current[key]);
+            alertTimers.current[key] = setTimeout(() => {
+                setSpikeAlerts((previous) => {
+                    const next = { ...previous };
+                    delete next[key];
+                    return next;
+                });
+            }, ALERT_DURATION_MS);
+        }
 
         function connecter() {
 
@@ -90,6 +112,46 @@ function Widget({ widget, onDelete }) {
                         [data.name_capteur]: data.value
                     }
                 }));
+
+                // Pics sur les valeurs numériques
+                const spikeConfig = SPIKE_CONFIG[data.name_capteur];
+
+                if (spikeConfig) {
+                    const key = `${data.ip_esp32}:${data.name_capteur}`;
+
+                    if (!detectors.current[key]) {
+                        detectors.current[key] = createSpikeDetector({
+                            minDelta: spikeConfig.minDelta
+                        });
+                    }
+
+                    const spike = detectors.current[key](data.value);
+
+                    if (spike) {
+                        showAlert(key, {
+                            ip: data.ip_esp32,
+                            sensor: data.name_capteur,
+                            value: spike.value,
+                            mean: spike.mean,
+                            delta: spike.delta
+                        });
+                    }
+                }
+
+                // Changement d'état IR : Libre -> Obstacle
+                if (data.name_capteur === 'ir') {
+                    const obstacle = Boolean(data.value);
+                    const previous = lastIr.current[data.ip_esp32];
+
+                    lastIr.current[data.ip_esp32] = obstacle;
+
+                    if (previous === false && obstacle) {
+                        showAlert(`${data.ip_esp32}:ir`, {
+                            ip: data.ip_esp32,
+                            sensor: 'ir'
+                        });
+                    }
+                }
             };
 
             ws.onclose = () => {
@@ -106,8 +168,7 @@ function Widget({ widget, onDelete }) {
 
         return () => {
             clearTimeout(reconnectTimeout);
-            clearTimeout(temperatureTimer);
-            clearTimeout(humidityTimer);
+            Object.values(alertTimers.current).forEach(clearTimeout); // NOUVEAU
             if (ws) {
                 ws.close();
             }
@@ -145,13 +206,20 @@ function Widget({ widget, onDelete }) {
                 <>
                     {distances.map(([ip, sensors]) => (
                         <div key={ip}>
-                            <p>
-                                ESP32 : {ip}
-                            </p>
+                            <p>ESP32 : {ip}</p>
+                            <p>Distance : {sensors.distance ?? 'hors portée'} cm</p>
 
-                            <p>
-                                Distance : {sensors.distance ?? 'hors portée'} cm
-                            </p>
+                            {Object.values(spikeAlerts)
+                                .filter((alert) => alert.ip === ip && alert.sensor === 'distance')
+                                .map((alert) => (
+                                    <p key={alert.sensor} className="alert alert-warning">
+                                        ⚡ Pic de {SPIKE_CONFIG[alert.sensor].label} :{' '}
+                                        {alert.value} {SPIKE_CONFIG[alert.sensor].unit}
+                                        {' '}({alert.delta > 0 ? '+' : ''}{alert.delta.toFixed(1)}
+                                        {' '}par rapport à la moyenne de {alert.mean.toFixed(1)})
+                                    </p>
+                                ))
+                            }
                         </div>
                     ))}
 
@@ -159,9 +227,7 @@ function Widget({ widget, onDelete }) {
                         <p>En attente des données...</p>
                     )}
 
-                    <p>
-                        Connexion : <b>{wsStatus}</b>
-                    </p>
+                    <p>Connexion : <b>{wsStatus}</b></p>
                 </>
             )}
 
@@ -177,18 +243,12 @@ function Widget({ widget, onDelete }) {
 
                         return (
                             <div key={ip}>
-                                <p>
-                                    ESP32 : {ip}
-                                </p>
+                                <p>ESP32 : {ip}</p>
 
-                                <p>
-                                    Température : {temperature ?? '--'} °C
-                                </p>
+                                <p>Température : {temperature ?? '--'} °C</p>
 
                                 {sensors.humidity !== undefined && (
-                                    <p>
-                                        Humidité : {sensors.humidity} %
-                                    </p>
+                                    <p>Humidité : {sensors.humidity} %</p>
                                 )}
 
                                 {surchauffe && (
@@ -197,6 +257,21 @@ function Widget({ widget, onDelete }) {
                                         (seuil : {TEMPERATURE_MAX} °C)
                                     </p>
                                 )}
+
+                                {Object.values(spikeAlerts)
+                                    .filter((alert) =>
+                                        alert.ip === ip &&
+                                        ['temperature', 'humidity'].includes(alert.sensor)
+                                    )
+                                    .map((alert) => (
+                                        <p key={alert.sensor} className="alert alert-warning">
+                                            ⚡ Pic de {SPIKE_CONFIG[alert.sensor].label} :{' '}
+                                            {alert.value} {SPIKE_CONFIG[alert.sensor].unit}
+                                            {' '}({alert.delta > 0 ? '+' : ''}{alert.delta.toFixed(1)}
+                                            {' '}par rapport à la moyenne de {alert.mean.toFixed(1)})
+                                        </p>
+                                    ))
+                                }
                             </div>
                         );
                     })}
@@ -205,9 +280,7 @@ function Widget({ widget, onDelete }) {
                         <p>En attente des données...</p>
                     )}
 
-                    <p>
-                        Connexion : <b>{wsStatus}</b>
-                    </p>
+                    <p>Connexion : <b>{wsStatus}</b></p>
                 </>
             )}
 
@@ -216,16 +289,17 @@ function Widget({ widget, onDelete }) {
                 <>
                     {irSensors.map(([ip, sensors]) => (
                         <div key={ip}>
-                            <p>
-                                ESP32 : {ip}
-                            </p>
+                            <p>ESP32 : {ip}</p>
+                            <p>{sensors.ir ? '🚧 Obstacle' : '✅ Libre'}</p>
 
-                            <p>
-                                {sensors.ir
-                                    ? '🚧 Obstacle'
-                                    : '✅ Libre'
-                                }
-                            </p>
+                            {Object.values(spikeAlerts)
+                                .filter((alert) => alert.ip === ip && alert.sensor === 'ir')
+                                .map((alert) => (
+                                    <p key={alert.sensor} className="alert alert-warning">
+                                        🚧 Obstacle détecté
+                                    </p>
+                                ))
+                            }
                         </div>
                     ))}
 
@@ -233,9 +307,7 @@ function Widget({ widget, onDelete }) {
                         <p>En attente des données...</p>
                     )}
 
-                    <p>
-                        Connexion : <b>{wsStatus}</b>
-                    </p>
+                    <p>Connexion : <b>{wsStatus}</b></p>
                 </>
             )}
 
@@ -268,7 +340,36 @@ function Widget({ widget, onDelete }) {
 
 
             {widget.widget === 'camera' && (
-                <p>📷 Caméra disponible prochainement</p>
+                <>
+                    <img
+                        className="camera-stream"
+                        src={cameraStreamUrl}
+                        alt="Flux vidéo de la caméra"
+                    />
+
+                    {cameraSensors.map(([source, sensors]) => (
+                        <p
+                            key={source}
+                            className={
+                                sensors.camera_intrusion
+                                    ? 'alert alert-critical'
+                                    : 'alert'
+                            }
+                        >
+                            {sensors.camera_intrusion
+                                ? '🚨 Intrus détecté'
+                                : '✅ Aucun intrus détecté'}
+                        </p>
+                    ))}
+
+                    {cameraSensors.length === 0 && (
+                        <p>En attente de la détection caméra...</p>
+                    )}
+
+                    <p>
+                        Connexion : <b>{wsStatus}</b>
+                    </p>
+                </>
             )}
 
         </div>

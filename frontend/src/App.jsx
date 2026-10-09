@@ -5,6 +5,9 @@ import AddWidget from './components/AddWidget';
 import Login from './components/Login';
 import { apiFetch, getToken, clearToken } from './utils/api';
 
+const API_URL =
+    `${window.location.protocol}//${window.location.hostname}:8000/api`;
+
 function App() {
     const [user, setUser] = useState(null);
     const [checkingAuth, setCheckingAuth] = useState(true);
@@ -64,10 +67,30 @@ function App() {
 
     async function addWidget(widgetName) {
         const catalog = {
-            distance:    { width: 4, height: 3 },
-            temperature: { width: 4, height: 3 },
-            camera:      { width: 5, height: 4 },
-            buzzer:      { width: 4, height: 3 }
+            distance: {
+                width: 4,
+                height: 3
+            },
+
+            temperature: {
+                width: 4,
+                height: 3
+            },
+
+            camera: {
+                width: 5,
+                height: 4
+            },
+
+            buzzer: {
+                width: 4,
+                height: 3
+            },
+
+            ir: {
+                width: 4,
+                height: 3
+            }
         };
         const config = catalog[widgetName];
         if (!config) return;
