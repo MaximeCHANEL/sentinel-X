@@ -6,6 +6,30 @@ const API_URL =
 
 const ALERT_DURATION_MS = 8000;
 const TEMPERATURE_MAX = 100;
+const MELODY_COOLDOWN_MS = 8000;
+
+const MELODIES = {
+    warning: {
+        steps: [
+            { f: 880, d: 120 },
+            { f: 0, d: 60 },
+            { f: 660, d: 180 }
+        ],
+        repeat: 1
+    },
+    alert: {
+        steps: [
+            { f: 1200, d: 160 },
+            { f: 0, d: 60 },
+            { f: 1200, d: 160 },
+            { f: 0, d: 60 },
+            { f: 1600, d: 260 }
+        ],
+        repeat: 1
+    }
+};
+
+const melodyCooldowns = new Map();
 
 const SPIKE_CONFIG = {
     temperature: { minDelta: 1,  label: 'température', unit: '°C' },
@@ -22,6 +46,31 @@ async function buzzer(state) {
 
     if (!response.ok) {
         alert('Buzzer injoignable.');
+    }
+}
+
+async function playMelody(type, key) {
+    const now = Date.now();
+    const lastPlayed = melodyCooldowns.get(key) ?? 0;
+
+    if (now - lastPlayed < MELODY_COOLDOWN_MS) {
+        return;
+    }
+
+    melodyCooldowns.set(key, now);
+
+    try {
+        const response = await fetch(`${API_URL}/melody`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(MELODIES[type])
+        });
+
+        if (!response.ok) {
+            console.error(`Impossible de jouer la mélodie ${type}.`);
+        }
+    } catch (error) {
+        console.error(`Impossible de joindre le buzzer pour ${type}.`, error);
     }
 }
 
@@ -43,6 +92,7 @@ function Widget({ widget, onDelete }) {
     const detectors = useRef({});    // un détecteur par ESP32 et par capteur
     const alertTimers = useRef({});  // un timer par ESP32 et par capteur
     const lastIr = useRef({}); // dernier état IR par ESP32
+    const criticalStates = useRef({});
 
 
     const config = WIDGET_CATALOG[widget.widget];
@@ -128,6 +178,10 @@ function Widget({ widget, onDelete }) {
                     const spike = detectors.current[key](data.value);
 
                     if (spike) {
+                        void playMelody(
+                            'warning',
+                            `${data.ip_esp32}:${data.name_capteur}:warning`
+                        );
                         showAlert(key, {
                             ip: data.ip_esp32,
                             sensor: data.name_capteur,
@@ -146,12 +200,29 @@ function Widget({ widget, onDelete }) {
                     lastIr.current[data.ip_esp32] = obstacle;
 
                     if (previous === false && obstacle) {
+                        void playMelody(
+                            'warning',
+                            `${data.ip_esp32}:ir:warning`
+                        );
                         showAlert(`${data.ip_esp32}:ir`, {
                             ip: data.ip_esp32,
                             sensor: 'ir'
                         });
                     }
                 }
+
+                const criticalKey =
+                    `${data.ip_esp32}:${data.name_capteur}:alert`;
+                const isCritical =
+                    (data.name_capteur === 'temperature' &&
+                        data.value > TEMPERATURE_MAX) ||
+                    (data.name_capteur === 'camera_intrusion' &&
+                        Boolean(data.value));
+
+                if (isCritical && !criticalStates.current[criticalKey]) {
+                    void playMelody('alert', criticalKey);
+                }
+                criticalStates.current[criticalKey] = isCritical;
             };
 
             ws.onclose = () => {
