@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .database import Base, engine
+from .database import Base, engine, migrate_schema
 from .routers import widgets, readings, esp32, auth, camera
 
 
@@ -11,6 +11,7 @@ app = FastAPI(
 )
 
 Base.metadata.create_all(bind=engine)
+migrate_schema()
 
 app.include_router(widgets.router)
 app.include_router(readings.router)
