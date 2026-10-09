@@ -10,14 +10,6 @@ app = FastAPI(
     description="API de gestion du dashboard Sentinel",
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 Base.metadata.create_all(bind=engine)
 
 app.include_router(widgets.router)
@@ -25,3 +17,13 @@ app.include_router(readings.router)
 app.include_router(esp32.router)
 app.include_router(auth.router)
 app.include_router(camera.router)
+
+# Keep CORS outside FastAPI's exception middleware so error responses include
+# the CORS headers required by browser clients.
+app = CORSMiddleware(
+    app,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
