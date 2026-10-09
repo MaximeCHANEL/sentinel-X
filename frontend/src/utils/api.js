@@ -1,4 +1,4 @@
-export const API_URL = 'http://localhost:8000/api';
+export const API_URL = `${window.location.protocol}//${window.location.hostname}:8000/api`;
 
 export function getToken() {
     return localStorage.getItem('token');
